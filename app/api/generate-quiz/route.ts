@@ -1,5 +1,6 @@
 import { LettaClient } from "@letta-ai/letta-client"
 import { z } from "zod"
+import { NextResponse } from 'next/server'; // <-- Import NextResponse
 
 // Schema for quiz generation
 const QuizSchema = z.object({
@@ -24,6 +25,17 @@ const COURSE_AGENTS = {
   "ap-french": process.env.LETTA_AGENT_AP_FRENCH,
   "ap-chemistry": process.env.LETTA_AGENT_AP_CHEMISTRY,
   "ap-csa": process.env.LETTA_AGENT_AP_CSA,
+}
+
+// Helper to extract text content from a message (re-used from other routes)
+function extractTextContent(content: any): string {
+    if (typeof content === 'string') {
+        return content;
+    }
+    if (Array.isArray(content)) {
+        return content.map(item => (item && typeof item === 'object' && 'text' in item ? item.text : '')).join('');
+    }
+    return '';
 }
 
 // Enhanced fallback questions for each course
@@ -141,7 +153,7 @@ export async function POST(req: Request) {
 
     if (!agentId) {
       console.log(`No agent ID found for course: ${courseId}, using fallback`)
-      return Response.json({
+      return NextResponse.json({ // <-- Changed to NextResponse.json
         questions: getFallbackQuestions(courseId, quizType, unit),
         metadata: {
           courseId,
@@ -156,7 +168,7 @@ export async function POST(req: Request) {
 
     if (!process.env.LETTA_API_KEY) {
       console.log("LETTA_API_KEY not found, using fallback")
-      return Response.json({
+      return NextResponse.json({ // <-- Changed to NextResponse.json
         questions: getFallbackQuestions(courseId, quizType, unit),
         metadata: {
           courseId,
@@ -269,24 +281,33 @@ Do not include any text before or after the JSON object.`
       }
 
       console.log("Sending quiz generation request to Letta agent...")
-      // Send message to Letta agent
-      const response = await client.agents.sendMessage({
-        agentId: agentId,
-        message: prompt,
-        role: "user",
-      })
+      // CHANGE START: Correct Letta API call
+      const response = await client.agents.messages.create(agentId, {
+        messages: [{ role: "user", content: prompt }], // Send the prompt as a user message
+      });
+      // CHANGE END
 
       console.log("Letta quiz response received")
 
-      // Extract the assistant's response
+      // CHANGE START: Correct response extraction
       let assistantResponse = ""
       if (response.messages && response.messages.length > 0) {
-        // Get the last assistant message
-        const lastMessage = response.messages[response.messages.length - 1]
-        if (lastMessage.role === "assistant") {
-          assistantResponse = lastMessage.text || ""
+        // Look for the last assistant message
+        for (let i = response.messages.length - 1; i >= 0; i--) {
+          const message = response.messages[i];
+          if (message.messageType === "assistant_message" && message.content) {
+            assistantResponse = extractTextContent(message.content);
+            break;
+          }
+          // Consider tool returns if the agent might output JSON via a tool
+          if (message.messageType === "tool_return_message" && message.toolReturn) {
+              if (!assistantResponse) { // Only assign if no assistant message found yet
+                  assistantResponse = extractTextContent(message.toolReturn);
+              }
+          }
         }
       }
+      // CHANGE END
 
       if (!assistantResponse) {
         throw new Error("No response from Letta agent")
@@ -323,7 +344,7 @@ Do not include any text before or after the JSON object.`
 
       console.log(`Successfully generated ${questionsWithIds.length} questions`)
 
-      return Response.json({
+      return NextResponse.json({ // <-- Changed to NextResponse.json
         questions: questionsWithIds,
         metadata: {
           courseId,
@@ -337,7 +358,7 @@ Do not include any text before or after the JSON object.`
     } catch (lettaError) {
       console.error("Letta API error during quiz generation:", lettaError)
       // Fall back to sample questions
-      return Response.json({
+      return NextResponse.json({ // <-- Changed to NextResponse.json
         questions: getFallbackQuestions(courseId, quizType, unit),
         metadata: {
           courseId,
@@ -346,7 +367,7 @@ Do not include any text before or after the JSON object.`
           generatedAt: new Date().toISOString(),
           fallback: true,
           source: "fallback",
-          error: "Letta API error",
+          error: lettaError instanceof Error ? lettaError.message : "Unknown Letta API error", // More specific error
         },
       })
     }
@@ -356,7 +377,7 @@ Do not include any text before or after the JSON object.`
     // Return fallback questions if generation fails
     const fallbackQuestions = getFallbackQuestions(courseId || "ap-biology", quizType || "unit", unit)
 
-    return Response.json({
+    return NextResponse.json({ // <-- Changed to NextResponse.json
       questions: fallbackQuestions,
       metadata: {
         courseId: courseId || "unknown",
