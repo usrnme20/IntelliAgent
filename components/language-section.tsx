@@ -81,16 +81,6 @@ export function LanguageSection({ courseId }: LanguageSectionProps) {
     }
   }
 
-  // Vapi configuration for language practice
-  const vapiConfig = {
-    // You'll need to replace these with your actual Vapi credentials
-    apiKey: process.env.NEXT_PUBLIC_VAPI_API_KEY || "your_vapi_public_key",
-    assistantId:
-      courseId === "ap-spanish"
-        ? process.env.NEXT_PUBLIC_VAPI_SPANISH_ASSISTANT_ID || "spanish_assistant_id"
-        : process.env.NEXT_PUBLIC_VAPI_FRENCH_ASSISTANT_ID || "french_assistant_id",
-  }
-
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">{language} Speaking & Listening</h2>
@@ -251,11 +241,7 @@ export function LanguageSection({ courseId }: LanguageSectionProps) {
                 </ul>
               </div>
 
-              <VapiWidget
-                apiKey={vapiConfig.apiKey}
-                assistantId={vapiConfig.assistantId}
-                language={language as "Spanish" | "French"}
-              />
+              <VapiWidget courseId={courseId} language={language as "Spanish" | "French"} />
             </div>
 
             <Card className="bg-blue-50 dark:bg-blue-900/20">

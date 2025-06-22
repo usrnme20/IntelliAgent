@@ -7,25 +7,74 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Mic, PhoneOff } from "lucide-react"
 
 interface VapiWidgetProps {
-  apiKey: string
-  assistantId: string
+  courseId: string
   language: "Spanish" | "French"
-  config?: Record<string, unknown>
 }
 
-export const VapiWidget: React.FC<VapiWidgetProps> = ({ apiKey, assistantId, language, config = {} }) => {
+export const VapiWidget: React.FC<VapiWidgetProps> = ({ courseId, language }) => {
   const [vapi, setVapi] = useState<any>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [transcript, setTranscript] = useState<Array<{ role: string; text: string }>>([])
+  const [assistantId, setAssistantId] = useState<string | null>(null)
+  const [configError, setConfigError] = useState<string | null>(null)
 
   useEffect(() => {
+    // Get Vapi configuration from server
+    const getVapiConfig = async () => {
+      try {
+        const response = await fetch("/api/vapi-config", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ courseId }),
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to get Vapi configuration")
+        }
+
+        const config = await response.json()
+
+        if (!config.hasApiKey) {
+          setConfigError("Voice assistant not configured. Please contact support.")
+          return
+        }
+
+        setAssistantId(config.assistantId)
+      } catch (error) {
+        console.error("Error getting Vapi config:", error)
+        setConfigError("Unable to load voice assistant configuration.")
+      }
+    }
+
+    getVapiConfig()
+  }, [courseId])
+
+  useEffect(() => {
+    if (!assistantId) return
+
     // Dynamically import Vapi to avoid SSR issues
     const loadVapi = async () => {
       try {
         const { default: Vapi } = await import("@vapi-ai/web")
-        const vapiInstance = new Vapi(apiKey)
+
+        // Use a server endpoint to get the API key securely
+        const response = await fetch("/api/vapi-token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to get API token")
+        }
+
+        const { token } = await response.json()
+        const vapiInstance = new Vapi(token)
         setVapi(vapiInstance)
 
         // Event listeners
@@ -71,6 +120,7 @@ export const VapiWidget: React.FC<VapiWidgetProps> = ({ apiKey, assistantId, lan
         })
       } catch (error) {
         console.error("Failed to load Vapi:", error)
+        setConfigError("Failed to initialize voice assistant.")
       }
     }
 
@@ -81,10 +131,10 @@ export const VapiWidget: React.FC<VapiWidgetProps> = ({ apiKey, assistantId, lan
         vapi.stop()
       }
     }
-  }, [apiKey])
+  }, [assistantId])
 
   const startCall = () => {
-    if (vapi) {
+    if (vapi && assistantId) {
       setIsLoading(true)
       vapi.start(assistantId)
     }
@@ -96,7 +146,19 @@ export const VapiWidget: React.FC<VapiWidgetProps> = ({ apiKey, assistantId, lan
     }
   }
 
-  if (!vapi) {
+  if (configError) {
+    return (
+      <Card className="w-full max-w-md">
+        <CardContent className="p-4">
+          <div className="text-center text-red-500">
+            <p className="text-sm">{configError}</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!vapi || !assistantId) {
     return (
       <Card className="w-full max-w-md">
         <CardContent className="p-4">
