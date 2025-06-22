@@ -1,16 +1,14 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { BookOpen, MessageSquare, BarChart3, FileText, Mic } from "lucide-react"
 import { ChatInterface } from "@/components/chat-interface"
 import { QuizSection } from "@/components/quiz-section"
+import { PracticeTestSection } from "@/components/practice-test-section"
 import { ProgressDashboard } from "@/components/progress-dashboard"
 import { LanguageSection } from "@/components/language-section"
-import { Brain, BookOpen, Target, Headphones, ArrowLeft } from "lucide-react"
-import Link from "next/link"
 
 interface Course {
   name: string
@@ -24,102 +22,142 @@ interface CourseLayoutProps {
   course: Course
 }
 
+interface CourseInfo {
+  units: string[]
+  progressAreas: Array<{
+    name: string
+    description: string
+    skills: string[]
+  }>
+}
+
 export function CourseLayout({ courseId, course }: CourseLayoutProps) {
   const [activeTab, setActiveTab] = useState("tutor")
+  const [courseInfo, setCourseInfo] = useState<CourseInfo | null>(null)
+  const [isLoadingCourseInfo, setIsLoadingCourseInfo] = useState(true)
+
+  // Load dynamic course information
+  useEffect(() => {
+    const loadCourseInfo = async () => {
+      try {
+        const response = await fetch("/api/get-course-info", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ courseId }),
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          setCourseInfo({
+            units: data.units,
+            progressAreas: data.progressAreas,
+          })
+        }
+      } catch (error) {
+        console.error("Error loading course info:", error)
+        // Use fallback course info
+        setCourseInfo({
+          units: course.units,
+          progressAreas: [],
+        })
+      } finally {
+        setIsLoadingCourseInfo(false)
+      }
+    }
+
+    loadCourseInfo()
+  }, [courseId, course.units])
+
   const isLanguageCourse = courseId === "ap-spanish" || courseId === "ap-french"
+  const units = courseInfo?.units || course.units
+  const progressAreas = courseInfo?.progressAreas || []
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="border-b bg-white dark:bg-gray-800">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link href="/">
-                <Button variant="ghost" size="sm">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Courses
-                </Button>
-              </Link>
-              <div className="flex items-center space-x-2">
-                <div className={`w-4 h-4 rounded-full ${course.color}`} />
-                <h1 className="text-2xl font-bold">{course.name}</h1>
-              </div>
+      <div className={`${course.color} text-white`}>
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+              <BookOpen className="h-6 w-6" />
             </div>
-            <Badge variant="outline">{course.units.length} Units</Badge>
+            <div>
+              <h1 className="text-3xl font-bold">{course.name}</h1>
+              <p className="text-white/80">{course.description}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {units.slice(0, 4).map((unit, index) => (
+              <Badge key={index} variant="secondary" className="bg-white/20 text-white border-white/30">
+                {unit}
+              </Badge>
+            ))}
+            {units.length > 4 && (
+              <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
+                +{units.length - 4} more
+              </Badge>
+            )}
           </div>
         </div>
-      </header>
+      </div>
 
+      {/* Navigation Tabs */}
       <div className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-5">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-5">
             <TabsTrigger value="tutor" className="flex items-center gap-2">
-              <Brain className="h-4 w-4" />
+              <MessageSquare className="h-4 w-4" />
               AI Tutor
             </TabsTrigger>
-            <TabsTrigger value="quiz" className="flex items-center gap-2">
-              <Target className="h-4 w-4" />
+            <TabsTrigger value="practice" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
               Practice
             </TabsTrigger>
+            <TabsTrigger value="test" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Practice Test
+            </TabsTrigger>
+            <TabsTrigger value="progress" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Progress
+            </TabsTrigger>
             {isLanguageCourse && (
-              <TabsTrigger value="language" className="flex items-center gap-2">
-                <Headphones className="h-4 w-4" />
+              <TabsTrigger value="speaking" className="flex items-center gap-2">
+                <Mic className="h-4 w-4" />
                 Speaking
               </TabsTrigger>
             )}
-            <TabsTrigger value="units" className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4" />
-              Units
-            </TabsTrigger>
-            <TabsTrigger value="progress" className="flex items-center gap-2">
-              Progress
-            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="tutor" className="space-y-6">
-            <ChatInterface courseId={courseId} courseName={course.name} />
+          <TabsContent value="tutor">
+            <ChatInterface courseId={courseId} />
           </TabsContent>
 
-          <TabsContent value="quiz" className="space-y-6">
-            <QuizSection courseId={courseId} units={course.units} setActiveTab={setActiveTab} />
+          <TabsContent value="practice">
+            <QuizSection courseId={courseId} units={units} setActiveTab={setActiveTab} />
+          </TabsContent>
+
+          <TabsContent value="test">
+            <PracticeTestSection courseId={courseId} />
+          </TabsContent>
+
+          <TabsContent value="progress">
+            <ProgressDashboard
+              courseId={courseId}
+              units={units}
+              progressAreas={progressAreas}
+              isLoading={isLoadingCourseInfo}
+            />
           </TabsContent>
 
           {isLanguageCourse && (
-            <TabsContent value="language" className="space-y-6">
+            <TabsContent value="speaking">
               <LanguageSection courseId={courseId} />
             </TabsContent>
           )}
-
-          <TabsContent value="units" className="space-y-6">
-            <div className="grid gap-4">
-              <h2 className="text-2xl font-bold">Course Units</h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {course.units.map((unit, index) => (
-                  <Card key={index} className="hover:shadow-md transition-shadow">
-                    <CardHeader>
-                      <CardTitle className="text-lg">Unit {index + 1}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">{unit}</p>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline">
-                          Study
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          Quiz
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="progress" className="space-y-6">
-            <ProgressDashboard courseId={courseId} />
-          </TabsContent>
         </Tabs>
       </div>
     </div>

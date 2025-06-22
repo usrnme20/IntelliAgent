@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Play, Pause, Mic, MicOff, Volume2, ExternalLink } from "lucide-react"
+import { VapiWidget } from "@/components/vapi-widget"
 
 interface LanguageSectionProps {
   courseId: string
@@ -80,14 +81,25 @@ export function LanguageSection({ courseId }: LanguageSectionProps) {
     }
   }
 
+  // Vapi configuration for language practice
+  const vapiConfig = {
+    // You'll need to replace these with your actual Vapi credentials
+    apiKey: process.env.NEXT_PUBLIC_VAPI_API_KEY || "your_vapi_public_key",
+    assistantId:
+      courseId === "ap-spanish"
+        ? process.env.NEXT_PUBLIC_VAPI_SPANISH_ASSISTANT_ID || "spanish_assistant_id"
+        : process.env.NEXT_PUBLIC_VAPI_FRENCH_ASSISTANT_ID || "french_assistant_id",
+  }
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">{language} Speaking & Listening</h2>
 
       <Tabs defaultValue="listening" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="listening">Listening Comprehension</TabsTrigger>
           <TabsTrigger value="speaking">Speaking Practice</TabsTrigger>
+          <TabsTrigger value="ai-conversation">AI Conversation</TabsTrigger>
         </TabsList>
 
         <TabsContent value="listening" className="space-y-6">
@@ -205,6 +217,59 @@ export function LanguageSection({ courseId }: LanguageSectionProps) {
                 </CardContent>
               </Card>
             ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="ai-conversation" className="space-y-6">
+          <div className="grid gap-4">
+            <h3 className="text-xl font-semibold">AI Conversation Practice</h3>
+            <p className="text-gray-600 dark:text-gray-300">
+              Have real-time conversations with an AI tutor in {language}. Practice pronunciation, vocabulary, and
+              natural conversation flow.
+            </p>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <h4 className="font-medium">Features:</h4>
+                <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                  <li className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full" />
+                    Real-time voice conversation
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                    Pronunciation feedback
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full" />
+                    Cultural context discussions
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full" />
+                    AP exam preparation
+                  </li>
+                </ul>
+              </div>
+
+              <VapiWidget
+                apiKey={vapiConfig.apiKey}
+                assistantId={vapiConfig.assistantId}
+                language={language as "Spanish" | "French"}
+              />
+            </div>
+
+            <Card className="bg-blue-50 dark:bg-blue-900/20">
+              <CardContent className="p-4">
+                <h4 className="font-medium mb-2">Getting Started:</h4>
+                <ol className="text-sm space-y-1 text-gray-600 dark:text-gray-300">
+                  <li>1. Click "Start Speaking Practice" to begin</li>
+                  <li>2. Introduce yourself in {language}</li>
+                  <li>3. Ask questions or discuss AP exam topics</li>
+                  <li>4. Practice pronunciation and receive feedback</li>
+                  <li>5. End the conversation when you're ready</li>
+                </ol>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
       </Tabs>
