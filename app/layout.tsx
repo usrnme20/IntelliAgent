@@ -8,7 +8,7 @@ import { Toaster } from "@/components/ui/toaster"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "AP Tutor - AI-Powered Learning Platform",
+  title: "IntelliAgent - AI-Powered Learning Platform",
   description: "Master AP courses with personalized AI tutors",
     generator: 'v0.dev'
 }
