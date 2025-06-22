@@ -16,7 +16,7 @@ const getFallbackResponse = (courseId: string, userMessage: string) => {
     "ap-biology": `As your AP Biology tutor, I'd be happy to help you with "${userMessage}". While I'm setting up my full capabilities, I can tell you that this topic relates to the AP Biology curriculum. Would you like me to explain any specific biological concepts or help you prepare for the AP exam?`,
     "ap-us-history": `As your AP US History tutor, I can help you understand "${userMessage}" in the context of American history. This connects to the broader themes we study in AP History. Would you like me to provide historical context or help with exam preparation?`,
     "ap-spanish": `¡Hola! Como tu tutor de AP Español, puedo ayudarte con "${userMessage}". Esto se relaciona con los temas culturales y lingüísticos que estudiamos. ¿Te gustaría practicar conversación o trabajar en algún tema específico?`,
-    "ap-french": `Bonjour! En tant que votre tuteur AP Français, je peux vous aider avec "${userMessage}". Cela se rapporte aux thèmes culturels et linguistiques que nous étudions. Aimeriez-vous pratiquer la conversation ou travailler sur un sujet spécifique?`,
+    "ap-french": `Bonjour! En tant que votre tuteur AP Français, je peux vous aider avec "${userMessage}". Cela se rapporte aux thèmes culturels et linguistiques que nous étudions. Aimeriez-vous pratiquer la conversación ou trabajar en un tema específico?`,
     "ap-chemistry": `As your AP Chemistry tutor, I can help explain "${userMessage}" using chemical principles. This relates to the fundamental concepts we study in AP Chemistry. Would you like me to break down the chemistry concepts or help with problem-solving strategies?`,
     "ap-csa": `As your AP Computer Science A tutor, I can help you understand "${userMessage}" in the context of Java programming and computer science concepts. Would you like me to explain the programming concepts or help with coding practice?`,
   }
@@ -71,66 +71,42 @@ export async function POST(req: Request) {
       const client = new LettaClient({
         token: process.env.LETTA_API_KEY,
       })
-    
+
       console.log("Sending message to Letta agent...")
       // Send message to Letta agent using the correct API method
-      const response = await client.agents.messages.create(agentId, { // <<<<<< THIS LINE IS CHANGED
-        messages: [{ role: "user", content: latestMessage.content }], // <<<<<< THIS LINE IS CHANGED
+      const response = await client.agents.messages.create(agentId, {
+        messages: [{ role: "user", content: latestMessage.content }],
       });
-    
+
       console.log("Letta response received:", response)
-    
-      // Extract the assistant's response - THIS PART ALSO NEEDS ADJUSTMENT
-      let assistantResponse = "";
-      if (response.messages && response.messages.length > 0) {
-        // Look for the last assistant message that is of type 'assistant_message'
-        // based on the Letta docs, it uses `messageType` not `role` for type checking
-        for (let i = response.messages.length - 1; i >= 0; i--) {
-          const message = response.messages[i];
-          if (message.messageType === "assistant_message" && message.content) { // <<<< CHECK message.messageType and message.content
-            assistantResponse = message.content;
-            break;
-          }
-        }
-      }
-    
-      // If we still don't have a response, try other fields
-      // This fallback might not be strictly necessary if the above loop works reliably
-      // based on the new message structure.
-      if (!assistantResponse && response.messages && response.messages.length > 0) {
-        const lastMessage = response.messages[response.messages.length - 1];
-        // The Letta docs show `content` not `text` for assistant messages.
-        // `toolReturn` might also be a relevant field if tools are used.
-        assistantResponse = lastMessage.content || lastMessage.toolReturn || "";
-      }
-    
-      console.log("Extracted assistant response:", assistantResponse)
 
       // Extract the assistant's response
-      let assistantResponse = ""
+      let assistantResponse = "";
       if (response.messages && response.messages.length > 0) {
-        // Look for the last assistant message
+        // Look for the last message that is of type 'assistant_message'
         for (let i = response.messages.length - 1; i >= 0; i--) {
-          const message = response.messages[i]
-          if (message.role === "assistant" && message.text) {
-            assistantResponse = message.text
-            break
+          const message = response.messages[i];
+          // Check for 'assistant_message' and ensure it has content
+          if (message.messageType === "assistant_message" && message.content) {
+            assistantResponse = message.content;
+            break; // Found the last assistant message, exit loop
+          }
+          // Optionally, handle tool return messages if needed for display
+          if (message.messageType === "tool_return_message" && message.toolReturn) {
+              assistantResponse = message.toolReturn; // Or concatenate if you want to show tool output with assistant message
+              // You might want a more sophisticated way to combine these,
+              // but for now, prioritizing toolReturn if no assistant message is found
           }
         }
       }
 
-      // If we still don't have a response, try other fields
-      if (!assistantResponse && response.messages && response.messages.length > 0) {
-        const lastMessage = response.messages[response.messages.length - 1]
-        assistantResponse = lastMessage.text || lastMessage.content || ""
+      // If, after checking all messages, no assistant response was found, use a fallback
+      if (!assistantResponse) {
+        console.log("No assistant or tool return response found, using fallback")
+        assistantResponse = getFallbackResponse(courseId, latestMessage.content)
       }
 
       console.log("Extracted assistant response:", assistantResponse)
-
-      if (!assistantResponse) {
-        console.log("No assistant response found, using fallback")
-        assistantResponse = getFallbackResponse(courseId, latestMessage.content)
-      }
 
       return Response.json({
         role: "assistant",
