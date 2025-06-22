@@ -71,7 +71,7 @@ Each tutor agent has specialized memory blocks:
 
 ### AP Spanish/French
 - 6 thematic units with cultural focus
-- Speaking and listening practice
+- Speaking and listening practice as well as AI conversation
 - Authentic resource integration
 
 ### AP Chemistry
