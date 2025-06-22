@@ -71,16 +71,40 @@ export async function POST(req: Request) {
       const client = new LettaClient({
         token: process.env.LETTA_API_KEY,
       })
-
+    
       console.log("Sending message to Letta agent...")
-      // Send message to Letta agent
-      const response = await client.agents.sendMessage({
-        agentId: agentId,
-        message: latestMessage.content,
-        role: "user",
-      })
-
+      // Send message to Letta agent using the correct API method
+      const response = await client.agents.messages.create(agentId, { // <<<<<< THIS LINE IS CHANGED
+        messages: [{ role: "user", content: latestMessage.content }], // <<<<<< THIS LINE IS CHANGED
+      });
+    
       console.log("Letta response received:", response)
+    
+      // Extract the assistant's response - THIS PART ALSO NEEDS ADJUSTMENT
+      let assistantResponse = "";
+      if (response.messages && response.messages.length > 0) {
+        // Look for the last assistant message that is of type 'assistant_message'
+        // based on the Letta docs, it uses `messageType` not `role` for type checking
+        for (let i = response.messages.length - 1; i >= 0; i--) {
+          const message = response.messages[i];
+          if (message.messageType === "assistant_message" && message.content) { // <<<< CHECK message.messageType and message.content
+            assistantResponse = message.content;
+            break;
+          }
+        }
+      }
+    
+      // If we still don't have a response, try other fields
+      // This fallback might not be strictly necessary if the above loop works reliably
+      // based on the new message structure.
+      if (!assistantResponse && response.messages && response.messages.length > 0) {
+        const lastMessage = response.messages[response.messages.length - 1];
+        // The Letta docs show `content` not `text` for assistant messages.
+        // `toolReturn` might also be a relevant field if tools are used.
+        assistantResponse = lastMessage.content || lastMessage.toolReturn || "";
+      }
+    
+      console.log("Extracted assistant response:", assistantResponse)
 
       // Extract the assistant's response
       let assistantResponse = ""
